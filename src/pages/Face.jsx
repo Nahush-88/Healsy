@@ -5,7 +5,6 @@ import { motion, AnimatePresence, MotionConfig } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { User } from '@/entities/User';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { format } from 'date-fns';
@@ -21,7 +20,7 @@ const FuturisticParticles = () => null;
 const GlowingOrbs = () => null;
 
 export default function FaceStyleAI() {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(null); // User state kept but will be null
   const [activeTab, setActiveTab] = useState('advanced');
   const [stats, setStats] = useState({
     totalAnalyses: 0,
@@ -39,7 +38,7 @@ export default function FaceStyleAI() {
   const checkPremiumAndLoad = async () => {
     try {
       setLoading(true);
-      const currentUser = await User.me();
+      const currentUser = null; // User.me() removed - User entity not available
       setUser(currentUser);
 
       if (!currentUser?.is_premium) {
@@ -109,7 +108,7 @@ export default function FaceStyleAI() {
     );
   }
 
-  if (!user?.is_premium) {
+  if (!user?.is_premium) { // Always true since user is null, will show paywall
     return (
       <>
         {showPaywall && (
