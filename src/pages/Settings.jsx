@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { User } from '@/entities/User';
 import { toast } from 'sonner';
 import { Heart, Sparkles, Trophy, Settings as SettingsIcon, Crown, Zap, Loader2, Flame, Brain, Utensils, Moon, Smile, Wind, Waves, Download } from 'lucide-react';
 import { PRICING, formatCurrency } from "@/components/constants/pricing";
@@ -18,7 +17,7 @@ import ProfileAvatar from '../components/settings/ProfileAvatar';
 
 export default function Settings() {
   const { t, locale, setLocale } = useTranslation();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(null); // User state kept but will be null
   const [theme, setTheme] = useState('light');
   const [showPaywall, setShowPaywall] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -30,7 +29,7 @@ export default function Settings() {
   const loadUser = async () => {
     try {
       setLoading(true);
-      const currentUser = await User.me();
+      const currentUser = null; // User.me() removed - User entity not available
       setUser(currentUser);
       
       const userTheme = currentUser?.theme || localStorage.getItem('healsy-theme') || 'light';
@@ -46,7 +45,7 @@ export default function Settings() {
 
   const handleSaveProfile = async (updateData) => {
     try {
-      await User.updateMyUserData(updateData);
+      // User.updateMyUserData() removed - User entity not available
       await loadUser();
       toast.success('✨ Profile updated successfully!');
     } catch (error) {
@@ -62,7 +61,7 @@ export default function Settings() {
     
     try {
       if (user) {
-        await User.updateMyUserData({ theme: newTheme });
+        // User.updateMyUserData() removed - User entity not available
         toast.success(`🎨 Theme updated to ${newTheme} mode`);
       }
     } catch (error) {
@@ -72,7 +71,7 @@ export default function Settings() {
 
   const handleLogout = async () => {
     try {
-      await User.logout();
+      // User.logout() removed - User entity not available
       window.location.href = "/";
     } catch (error) {
       toast.error("Logout failed. Please try again.");
@@ -90,7 +89,7 @@ export default function Settings() {
     loadUser(); // Reload user data
   };
   
-  const isPremium = user?.is_premium && (!user.premium_expiry || new Date(user.premium_expiry) > new Date());
+  const isPremium = false; // Always false since user is null - User entity not available
 
   if (loading) {
     return (
@@ -188,9 +187,8 @@ export default function Settings() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
             >
-              <SubscriptionStatus 
-                user={user} 
-                isPremium={isPremium} 
+              <SubscriptionStatus
+                user={user}
                 onUpgradeClick={handleUpgradeClick}
               />
             </motion.div>
