@@ -1,0 +1,85 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+import { jsPDF } from 'npm:jspdf@2.5.1';
+
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+    if (!user) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const payload = await req.json().catch(() => ({}));
+    const {
+      bed_time = "",
+      wake_time = "",
+      sleep_quality = 0,
+      dream_description = "",
+      analysis = {},
+    } = payload || {};
+
+    const doc = new jsPDF();
+
+    // Header
+    doc.setFontSize(18);
+    doc.text('Healsy AI - Sleep Analysis', 20, 20);
+    doc.setFontSize(11);
+    doc.text(`User: ${user.full_name || user.email}`, 20, 28);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 34);
+
+    // Overview
+    doc.setFontSize(14);
+    doc.text('Overview', 20, 48);
+    doc.setFontSize(11);
+    doc.text(`Bedtime: ${bed_time || '-'}`, 20, 56);
+    doc.text(`Wake time: ${wake_time || '-'}`, 20, 62);
+    doc.text(`Sleep quality (self): ${sleep_quality || '-'}/5`, 20, 68);
+
+    // AI Metrics
+    doc.setFontSize(14);
+    doc.text('AI Metrics', 20, 84);
+    doc.setFontSize(11);
+    const score = analysis.sleep_score ?? '—';
+    const duration = analysis.sleep_duration_hours != null ? `${Number(analysis.sleep_duration_hours).toFixed(1)} h` : '—';
+    doc.text(`Sleep score: ${score}`, 20, 92);
+    doc.text(`Estimated duration: ${duration}`, 20, 98);
+
+    // Sleep Quality & Dream
+    const quality = analysis.sleep_quality || '—';
+    doc.setFontSize(14);
+    doc.text('Sleep Quality', 20, 114);
+    doc.setFontSize(11);
+    doc.text(doc.splitTextToSize(String(quality), 170), 20, 122);
+
+    if (dream_description || analysis.dream_analysis) {
+      doc.setFontSize(14);
+      doc.text('Dream Analysis', 20, 150);
+      doc.setFontSize(11);
+      const dreamText = `Dream: ${dream_description || '—'}\n\nAI Insight: ${analysis.dream_analysis || '—'}`;
+      doc.text(doc.splitTextToSize(dreamText, 170), 20, 158);
+    }
+
+    // Tips
+    doc.setFontSize(14);
+    doc.text('Improvement Tips', 20, 190);
+    doc.setFontSize(11);
+    const tips = Array.isArray(analysis.tips) ? analysis.tips : [];
+    if (tips.length) {
+      const tipList = tips.map((t, i) => `${i + 1}. ${t}`).join('\n');
+      doc.text(doc.splitTextToSize(tipList, 170), 20, 198);
+    } else {
+      doc.text('No tips available.', 20, 198);
+    }
+
+    const pdf = doc.output('arraybuffer');
+    return new Response(pdf, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename="sleep_report.pdf"'
+      }
+    });
+  } catch (error) {
+    return Response.json({ error: error.message || String(error) }, { status: 500 });
+  }
+});

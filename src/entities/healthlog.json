@@ -1,0 +1,43 @@
+{
+  "name": "HealthLog",
+  "type": "object",
+  "properties": {
+    "log_type": {
+      "type": "string",
+      "enum": [
+        "meal",
+        "skin",
+        "mood_journal",
+        "sleep",
+        "water",
+        "mood_check_in",
+        "exercise_plan",
+        "aura"
+      ],
+      "description": "The type of health entry."
+    },
+    "log_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "The date and time of the log."
+    },
+    "title": {
+      "type": "string",
+      "description": "A brief title for the log entry."
+    },
+    "data": {
+      "type": "object",
+      "description": "Flexible data payload for the specific log type."
+    },
+    "user_email": {
+      "type": "string",
+      "description": "Email of the user who created this log."
+    }
+  },
+  "required": [
+    "log_type",
+    "log_date",
+    "title",
+    "user_email"
+  ]
+}

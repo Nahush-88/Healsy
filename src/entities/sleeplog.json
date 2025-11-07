@@ -1,0 +1,47 @@
+{
+  "name": "SleepLog",
+  "type": "object",
+  "properties": {
+    "bed_time": {
+      "type": "string",
+      "description": "Time user went to bed"
+    },
+    "wake_time": {
+      "type": "string",
+      "description": "Time user woke up"
+    },
+    "sleep_quality": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "Sleep quality rating (1-5 stars)"
+    },
+    "dream_description": {
+      "type": "string",
+      "description": "Optional dream description"
+    },
+    "sleep_duration": {
+      "type": "number",
+      "description": "Total sleep duration in hours"
+    },
+    "sleep_score": {
+      "type": "number",
+      "description": "AI-calculated sleep score out of 100"
+    },
+    "ai_analysis": {
+      "type": "object",
+      "description": "AI analysis and tips for better sleep"
+    },
+    "log_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of sleep log"
+    }
+  },
+  "required": [
+    "bed_time",
+    "wake_time",
+    "sleep_quality",
+    "log_date"
+  ]
+}

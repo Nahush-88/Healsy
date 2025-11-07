@@ -1,0 +1,46 @@
+Deno.serve(async (req) => {
+  try {
+    const SITE_URL = 'https://healsy-ai.base44.app';
+    
+    const robotsTxt = `# Healsy AI - Robots.txt
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /_og/
+Disallow: /Settings
+
+# Crawl-delay
+Crawl-delay: 0
+
+# Sitemap
+Sitemap: ${SITE_URL}/sitemap
+
+# Popular bots
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Slurp
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /`;
+
+    return new Response(robotsTxt, {
+      status: 200,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'public, max-age=86400',
+      },
+    });
+  } catch (error) {
+    console.error('Error generating robots.txt:', error);
+    return new Response('Error generating robots.txt', {
+      status: 500,
+      headers: { 'Content-Type': 'text/plain' },
+    });
+  }
+});

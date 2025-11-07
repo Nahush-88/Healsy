@@ -1,0 +1,50 @@
+Deno.serve(async (req) => {
+  try {
+    const manifest = {
+      "name": "Healsy AI - Smart Health & Wellness Assistant",
+      "short_name": "Healsy AI",
+      "description": "AI-powered health & fitness assistant for diet, exercise, sleep, and wellness tracking",
+      "start_url": "/",
+      "display": "standalone",
+      "background_color": "#ffffff",
+      "theme_color": "#8b5cf6",
+      "orientation": "portrait-primary",
+      "icons": [
+        {
+          "src": "/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png",
+          "purpose": "any maskable"
+        },
+        {
+          "src": "/icon-512.png",
+          "sizes": "512x512",
+          "type": "image/png",
+          "purpose": "any maskable"
+        }
+      ],
+      "categories": ["health", "fitness", "lifestyle", "medical"],
+      "screenshots": [
+        {
+          "src": "/screenshot-1.png",
+          "sizes": "1280x720",
+          "type": "image/png"
+        }
+      ]
+    };
+
+    return new Response(JSON.stringify(manifest, null, 2), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/manifest+json; charset=utf-8',
+        'Cache-Control': 'public, max-age=86400',
+      },
+    });
+  } catch (error) {
+    console.error('Error generating manifest:', error);
+    return new Response('Error generating manifest', {
+      status: 500,
+      headers: { 'Content-Type': 'text/plain' },
+    });
+  }
+});

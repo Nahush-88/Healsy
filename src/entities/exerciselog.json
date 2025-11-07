@@ -1,0 +1,68 @@
+{
+  "name": "ExerciseLog",
+  "type": "object",
+  "properties": {
+    "exercise_id": {
+      "type": "string",
+      "description": "ID of the exercise performed"
+    },
+    "body_part": {
+      "type": "string",
+      "enum": [
+        "chest",
+        "arms",
+        "legs",
+        "back",
+        "core"
+      ],
+      "description": "Body part worked"
+    },
+    "muscle_group": {
+      "type": "string",
+      "description": "Muscle group targeted"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "description": "Difficulty level used"
+    },
+    "duration_minutes": {
+      "type": "number",
+      "description": "Workout duration in minutes"
+    },
+    "sets_completed": {
+      "type": "number",
+      "description": "Number of sets completed"
+    },
+    "calories_burned": {
+      "type": "number",
+      "description": "Estimated calories burned"
+    },
+    "user_rating": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "User's rating of the workout"
+    },
+    "notes": {
+      "type": "string",
+      "description": "User's workout notes"
+    },
+    "log_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the workout"
+    }
+  },
+  "required": [
+    "exercise_id",
+    "body_part",
+    "muscle_group",
+    "difficulty",
+    "log_date"
+  ]
+}

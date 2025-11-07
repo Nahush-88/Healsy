@@ -1,0 +1,116 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+import { createHmac } from 'node:crypto';
+
+Deno.serve(async (req) => {
+    console.log('🔐 === RAZORPAY VERIFY START ===');
+    
+    try {
+        const base44 = createClientFromRequest(req);
+        const user = await base44.auth.me();
+
+        if (!user) {
+            console.error('❌ User not authenticated');
+            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        console.log('✅ User:', user.email);
+
+        const body = await req.json();
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan_type, currency = 'INR' } = body;
+
+        console.log('📝 Verify request:', { 
+            razorpay_order_id, 
+            razorpay_payment_id, 
+            plan_type, 
+            currency 
+        });
+
+        if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !plan_type) {
+            console.error('❌ Missing parameters');
+            return Response.json({ error: 'Missing required parameters' }, { status: 400 });
+        }
+
+        // USING YOUR ACTUAL SECRET NAME (with typo)
+        const keySecret = Deno.env.get('RAZORPAY_KEY_SECRECT');
+
+        if (!keySecret) {
+            console.error('❌ Razorpay secret (RAZORPAY_KEY_SECRECT) missing');
+            return Response.json({ error: 'Configuration error' }, { status: 500 });
+        }
+
+        console.log('✅ Secret loaded');
+
+        // Verify signature
+        console.log('🔍 Verifying signature...');
+        const text = `${razorpay_order_id}|${razorpay_payment_id}`;
+        const generated_signature = createHmac('sha256', keySecret)
+            .update(text)
+            .digest('hex');
+
+        const isValid = generated_signature === razorpay_signature;
+
+        console.log('Signature match:', isValid);
+
+        if (!isValid) {
+            console.error('❌ INVALID SIGNATURE');
+            return Response.json({ 
+                success: false, 
+                error: 'Invalid payment signature'
+            }, { status: 400 });
+        }
+
+        console.log('✅ Signature verified!');
+
+        // Calculate expiry
+        const now = new Date();
+        const expiryDate = new Date(now);
+        
+        if (plan_type === 'monthly') {
+            expiryDate.setMonth(expiryDate.getMonth() + 1);
+        } else if (plan_type === 'yearly') {
+            expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        }
+
+        console.log('📅 Expiry:', expiryDate.toISOString());
+
+        // Update user to premium using service role
+        console.log('💎 Upgrading user to PREMIUM...');
+        await base44.asServiceRole.entities.User.update(user.id, {
+            is_premium: true,
+            premium_plan: plan_type,
+            premium_expiry: expiryDate.toISOString(),
+            payment_id: razorpay_payment_id,
+            payment_currency: currency
+        });
+
+        console.log('✅ USER UPGRADED TO PREMIUM!');
+        console.log('   Plan:', plan_type);
+        console.log('   Expires:', expiryDate.toISOString());
+        console.log('   Payment ID:', razorpay_payment_id);
+
+        const response = {
+            success: true,
+            message: 'Payment verified and premium activated',
+            premium_expiry: expiryDate.toISOString(),
+            plan_type: plan_type,
+            currency: currency
+        };
+
+        console.log('📤 Sending success response');
+        console.log('🔐 === RAZORPAY VERIFY SUCCESS ===\n');
+
+        return Response.json(response);
+
+    } catch (error) {
+        console.error('❌ === RAZORPAY VERIFY ERROR ===');
+        console.error('Name:', error.name);
+        console.error('Message:', error.message);
+        console.error('Stack:', error.stack);
+        
+        return Response.json({ 
+            success: false,
+            error: 'Verification failed',
+            details: error.message 
+        }, { status: 500 });
+    }
+});

@@ -1,0 +1,236 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+import { jsPDF } from 'npm:jspdf@2.5.1';
+
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const analysis = body?.analysis || {};
+    const photoUrl = body?.photo_url || null;
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 40;
+    let y = margin;
+
+    // Header
+    doc.setFillColor(139, 92, 246); // violet-500
+    doc.rect(0, 0, pageW, 80, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.text('Healsy Face & Glow Analysis', margin, 50);
+
+    // User and date
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generated for: ${user.full_name || user.email}`, pageW - margin, 50, { align: 'right' });
+
+    y = 100;
+
+    // Optional photo (small thumbnail)
+    if (photoUrl) {
+      try {
+        const imgRes = await fetch(photoUrl);
+        const blob = await imgRes.blob();
+        const arrayBuffer = await blob.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        // Try auto-type: jpg/png
+        const imgType = photoUrl.toLowerCase().endsWith('.png') ? 'PNG' : 'JPEG';
+        const imgW = 96, imgH = 96;
+        doc.addImage(bytes, imgType, margin, y, imgW, imgH);
+      } catch {
+        // ignore image errors
+      }
+    }
+
+    // Summary
+    const summaryX = photoUrl ? margin + 110 : margin;
+    doc.setTextColor(17, 24, 39); // slate-900
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text('Overview', summaryX, y + 10);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    const overview = analysis.overall_assessment || 'A gentle, natural plan to enhance glow, hydration, and clarity.';
+    const wrapped = doc.splitTextToSize(overview, pageW - summaryX - margin);
+    doc.text(wrapped, summaryX, y + 30);
+
+    y += 120;
+
+    // Scores
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('Radiance Scores (0–10)', margin, y);
+    y += 14;
+
+    const scores = [
+      { label: 'Glow', val: Math.max(0, Math.min(10, Number(analysis.glow_score ?? 7))) },
+      { label: 'Hydration', val: Math.max(0, Math.min(10, Number(analysis.hydration_score ?? 7))) },
+      { label: 'Clarity', val: Math.max(0, Math.min(10, Number(analysis.clarity_score ?? 7))) },
+    ];
+
+    const barW = pageW - margin * 2 - 100;
+    const barH = 10;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(11);
+    scores.forEach((s) => {
+      doc.text(`${s.label}`, margin, y + 9);
+      // Bar background
+      doc.setFillColor(226, 232, 240); // slate-200
+      doc.rect(margin + 80, y, barW, barH, 'F');
+      // Filled bar
+      const fillW = (s.val / 10) * barW;
+      doc.setFillColor(139, 92, 246); // violet-500
+      doc.rect(margin + 80, y, fillW, barH, 'F');
+      // Value
+      doc.setTextColor(71, 85, 105); // slate-600
+      doc.text(`${s.val}/10`, margin + 80 + barW + 10, y + 9);
+      y += 22;
+    });
+
+    y += 6;
+
+    // Helper to print list sections
+    const printList = (title, items, transform = (v) => v) => {
+      if (!items || !items.length) return;
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(17, 24, 39);
+      doc.setFontSize(14);
+      doc.text(title, margin, y);
+      y += 12;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(71, 85, 105);
+
+      items.forEach((item) => {
+        const text = transform(item);
+        const lines = doc.splitTextToSize(`• ${text}`, pageW - margin * 2);
+        if (y + lines.length * 14 > doc.internal.pageSize.getHeight() - margin) {
+          doc.addPage();
+          y = margin;
+        }
+        doc.text(lines, margin, y);
+        y += lines.length * 14 + 2;
+      });
+      y += 6;
+    };
+
+    // Concerns
+    if (Array.isArray(analysis.skin_concerns) && analysis.skin_concerns.length) {
+      printList('Skin Concerns', analysis.skin_concerns);
+    }
+
+    // Ayurvedic profile
+    const ay = analysis.ayurveda || {};
+    if (ay?.dominant_dosha || (Array.isArray(ay?.traits) && ay.traits.length)) {
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(17, 24, 39);
+      doc.setFontSize(14);
+      doc.text('Ayurvedic Profile', margin, y);
+      y += 12;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(11);
+      doc.setTextColor(71, 85, 105);
+      if (ay.dominant_dosha) {
+        doc.text(`Dominant Dosha: ${ay.dominant_dosha}`, margin, y);
+        y += 16;
+      }
+      if (Array.isArray(ay.traits) && ay.traits.length) {
+        printList('Traits', ay.traits);
+      }
+      if (Array.isArray(ay.recommended_oils) && ay.recommended_oils.length) {
+        printList('Recommended Oils', ay.recommended_oils);
+      }
+      if (Array.isArray(ay.daily_rituals) && ay.daily_rituals.length) {
+        printList('Daily Rituals', ay.daily_rituals);
+      }
+      if (Array.isArray(ay.seasonal_care) && ay.seasonal_care.length) {
+        printList('Seasonal Care', ay.seasonal_care.map(s => `${s.season}: ${s.guidance}`));
+      }
+      if (Array.isArray(ay.avoid_list) && ay.avoid_list.length) {
+        printList('Avoid List', ay.avoid_list);
+      }
+    }
+
+    // Morning / Evening routines
+    const mr = analysis?.natural_routine?.morning_routine || [];
+    const er = analysis?.natural_routine?.evening_routine || [];
+    if (mr.length || er.length) {
+      printList('Morning Routine', mr.map(s => `${s.step || 'Step'}${s.natural_ingredient ? ` • ${s.natural_ingredient}` : ''}${s.application ? ` • ${s.application}` : ''}`));
+      printList('Evening Routine', er.map(s => `${s.step || 'Step'}${s.natural_ingredient ? ` • ${s.natural_ingredient}` : ''}${s.application ? ` • ${s.application}` : ''}`));
+    }
+
+    // Easy remedies
+    const remedies = Array.isArray(analysis.easy_remedies) ? analysis.easy_remedies : [];
+    if (remedies.length) {
+      printList('Easy Home Remedies', remedies.map(r => {
+        const parts = [
+          r.name,
+          r.ingredients ? `Ingredients: ${r.ingredients}` : null,
+          r.steps ? `Steps: ${r.steps}` : null,
+          r.frequency ? `Use: ${r.frequency}` : null,
+          r?.availability?.where?.length ? `Where: ${r.availability.where.join(' • ')}` : null,
+          r?.availability?.cost_level ? `Cost: ${r.availability.cost_level}` : null,
+          r.caution ? `Caution: ${r.caution}` : null
+        ].filter(Boolean);
+        return parts.join(' | ');
+      }));
+    }
+
+    // 7-day plan
+    const plan = Array.isArray(analysis.plan_7_days) ? analysis.plan_7_days : [];
+    if (plan.length) {
+      printList('7‑Day Radiance Plan', plan.map(d =>
+        `${d.day || ''} • Morning: ${d.morning || '-'} • Evening: ${d.evening || '-'}${d.diet_tip ? ` • Diet: ${d.diet_tip}` : ''}${d.water_goal_ml ? ` • Water: ${d.water_goal_ml}ml` : ''}${d.bonus_trick ? ` • Bonus: ${d.bonus_trick}` : ''}`
+      ));
+    }
+
+    // Budget friendly finds
+    const finds = Array.isArray(analysis.affordable_products) ? analysis.affordable_products : [];
+    if (finds.length) {
+      printList('Budget‑Friendly Finds', finds.map(p =>
+        `${p.name} • ${p.type || ''}${p.type ? ' • ' : ''}${p.price_range || ''}${p.where_to_find ? ` • Where: ${p.where_to_find}` : ''}`
+      ));
+    }
+
+    // Cautions
+    const cautions = Array.isArray(analysis.caution_notes) ? analysis.caution_notes : [];
+    if (cautions.length) {
+      printList('Gentle Cautions', cautions);
+    }
+
+    // Diet & Lifestyle tips
+    const diet = Array.isArray(analysis.natural_diet_tips) ? analysis.natural_diet_tips : [];
+    const life = Array.isArray(analysis.natural_lifestyle_tips) ? analysis.natural_lifestyle_tips : [];
+    if (diet.length) printList('Natural Diet Tips', diet);
+    if (life.length) printList('Lifestyle Tips', life);
+
+    // Footer
+    const pageH = doc.internal.pageSize.getHeight();
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, pageH - margin - 18, pageW - margin, pageH - margin - 18);
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Healsy • Personalized wellness insights with Ayurvedic care', margin, pageH - margin);
+
+    const pdfBytes = doc.output('arraybuffer');
+    return new Response(pdfBytes, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename=healsy_face_analysis.pdf'
+      }
+    });
+  } catch (error) {
+    return Response.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  }
+});

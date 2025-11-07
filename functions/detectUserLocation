@@ -1,0 +1,79 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+
+Deno.serve(async (req) => {
+    try {
+        const base44 = createClientFromRequest(req);
+        const user = await base44.auth.me();
+
+        if (!user) {
+            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Get IP from request headers
+        const cfConnectingIp = req.headers.get('cf-connecting-ip');
+        const xRealIp = req.headers.get('x-real-ip');
+        const xForwardedFor = req.headers.get('x-forwarded-for');
+        
+        const ip = cfConnectingIp || xRealIp || (xForwardedFor ? xForwardedFor.split(',')[0].trim() : null);
+
+        // If localhost, default to India
+        if (!ip || ip === '127.0.0.1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) {
+            return Response.json({
+                country: 'IN',
+                countryName: 'India',
+                currency: 'INR',
+                pricingRegion: 'india',
+                gateway: 'razorpay'
+            });
+        }
+
+        const geoipApiKey = Deno.env.get('GEOIP_API_KEY');
+
+        if (!geoipApiKey) {
+            // No API key, default to India
+            return Response.json({
+                country: 'IN',
+                countryName: 'India',
+                currency: 'INR',
+                pricingRegion: 'india',
+                gateway: 'razorpay'
+            });
+        }
+
+        // Call IPQualityScore
+        const geoUrl = `https://www.ipqualityscore.com/api/json/ip/${geoipApiKey}/${ip}?strictness=0&fast=true`;
+        const geoResponse = await fetch(geoUrl);
+
+        if (!geoResponse.ok) {
+            throw new Error('GeoIP API failed');
+        }
+
+        const geoData = await geoResponse.json();
+
+        if (!geoData.success) {
+            throw new Error('GeoIP unsuccessful');
+        }
+
+        const countryCode = geoData.country_code || 'IN';
+        const isIndia = countryCode === 'IN';
+
+        return Response.json({
+            country: countryCode,
+            countryName: geoData.country || 'Unknown',
+            currency: isIndia ? 'INR' : 'USD',
+            pricingRegion: isIndia ? 'india' : 'global',
+            gateway: 'razorpay'  // EVERYONE USES RAZORPAY NOW
+        });
+
+    } catch (error) {
+        console.error('Location error:', error);
+        // Always default to India on error
+        return Response.json({
+            country: 'IN',
+            countryName: 'India',
+            currency: 'INR',
+            pricingRegion: 'india',
+            gateway: 'razorpay'
+        });
+    }
+});

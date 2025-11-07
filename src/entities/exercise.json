@@ -1,0 +1,81 @@
+{
+  "name": "Exercise",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Exercise name"
+    },
+    "body_part": {
+      "type": "string",
+      "enum": [
+        "chest",
+        "arms",
+        "legs",
+        "back",
+        "core"
+      ],
+      "description": "Primary body part targeted"
+    },
+    "muscle_group": {
+      "type": "string",
+      "description": "Specific muscle group (e.g., biceps, triceps, chest, etc.)"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "description": "Exercise difficulty level"
+    },
+    "instructions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Step-by-step exercise instructions"
+    },
+    "sets": {
+      "type": "number",
+      "description": "Recommended number of sets"
+    },
+    "reps": {
+      "type": "string",
+      "description": "Recommended repetitions (e.g., '10-12', '30 seconds')"
+    },
+    "equipment": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Equipment needed"
+    },
+    "calories_per_minute": {
+      "type": "number",
+      "description": "Estimated calories burned per minute"
+    },
+    "tips": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Exercise tips and safety notes"
+    },
+    "is_premium": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether exercise requires premium"
+    }
+  },
+  "required": [
+    "name",
+    "body_part",
+    "muscle_group",
+    "difficulty",
+    "instructions",
+    "sets",
+    "reps"
+  ]
+}

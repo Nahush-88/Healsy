@@ -1,0 +1,57 @@
+{
+  "name": "ChallengeProgress",
+  "type": "object",
+  "properties": {
+    "challenge_id": {
+      "type": "string",
+      "description": "ID of the challenge"
+    },
+    "current_day": {
+      "type": "number",
+      "description": "Current day in the challenge"
+    },
+    "completed_days": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "date"
+      },
+      "description": "Array of completed days"
+    },
+    "is_completed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether challenge is completed"
+    },
+    "start_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Challenge start date"
+    },
+    "streak": {
+      "type": "number",
+      "default": 0,
+      "description": "Current streak count"
+    },
+    "xp_earned": {
+      "type": "number",
+      "default": 0,
+      "description": "XP earned so far"
+    },
+    "badges_earned": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Badges earned during this challenge"
+    },
+    "notes": {
+      "type": "object",
+      "description": "User notes per day"
+    }
+  },
+  "required": [
+    "challenge_id",
+    "start_date"
+  ]
+}

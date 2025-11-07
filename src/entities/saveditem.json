@@ -1,0 +1,37 @@
+{
+  "name": "SavedItem",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "The title of the saved item, e.g., 'Face Analysis - 10/26/2023'"
+    },
+    "content": {
+      "type": "string",
+      "description": "A summary or the main content of the saved item."
+    },
+    "details": {
+      "type": "object",
+      "description": "The full structured data of the analysis or recommendation."
+    },
+    "source_page": {
+      "type": "string",
+      "description": "Which page this item came from, e.g., 'Face', 'Diet', 'Exercise'."
+    },
+    "icon": {
+      "type": "string",
+      "description": "The name of the Lucide icon to represent this item."
+    },
+    "user_email": {
+      "type": "string",
+      "description": "The email of the user who saved the item."
+    }
+  },
+  "required": [
+    "title",
+    "content",
+    "source_page",
+    "icon",
+    "user_email"
+  ]
+}

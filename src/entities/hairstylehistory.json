@@ -1,0 +1,62 @@
+{
+  "name": "HairstyleHistory",
+  "type": "object",
+  "properties": {
+    "photo_url": {
+      "type": "string",
+      "description": "URL of the face photo"
+    },
+    "face_shape": {
+      "type": "string",
+      "enum": [
+        "oval",
+        "square",
+        "round",
+        "diamond",
+        "heart",
+        "oblong"
+      ],
+      "description": "Detected face shape"
+    },
+    "jawline_type": {
+      "type": "string",
+      "description": "Jawline structure description"
+    },
+    "recommended_hairstyles": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "List of recommended hairstyles"
+    },
+    "beard_styles": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Recommended beard styles"
+    },
+    "hair_colors": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Suggested hair colors"
+    },
+    "is_favorite": {
+      "type": "boolean",
+      "default": false,
+      "description": "Mark as favorite analysis"
+    },
+    "analysis_date": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When analysis was performed"
+    }
+  },
+  "required": [
+    "photo_url",
+    "face_shape",
+    "analysis_date"
+  ]
+}

@@ -1,0 +1,91 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+
+const SITE_URL = 'https://healsy-ai.base44.app';
+
+// Generate robots.txt
+const generateRobotsTxt = () => {
+  return `User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /Settings
+Disallow: /Onboarding
+
+Sitemap: ${SITE_URL}/sitemap.xml
+
+# Crawl-delay
+Crawl-delay: 1`;
+};
+
+// Generate sitemap.xml
+const generateSitemap = () => {
+  const currentDate = new Date().toISOString().split('T')[0];
+  
+  const routes = [
+    { url: '/', priority: '1.0', changefreq: 'daily', lastmod: currentDate },
+    { url: '/Dashboard', priority: '0.9', changefreq: 'daily', lastmod: currentDate },
+    { url: '/AIHealthCoach', priority: '0.9', changefreq: 'weekly', lastmod: currentDate },
+    { url: '/Face', priority: '0.8', changefreq: 'weekly', lastmod: currentDate },
+    { url: '/Body', priority: '0.8', changefreq: 'weekly', lastmod: currentDate },
+    { url: '/Sleep', priority: '0.8', changefreq: 'weekly', lastmod: currentDate },
+    { url: '/Mind', priority: '0.8', changefreq: 'weekly', lastmod: currentDate },
+    { url: '/Mood', priority: '0.7', changefreq: 'weekly', lastmod: currentDate },
+    { url: '/Exercise', priority: '0.8', changefreq: 'weekly', lastmod: currentDate },
+    { url: '/Yoga', priority: '0.7', changefreq: 'weekly', lastmod: currentDate },
+    { url: '/Meditation', priority: '0.7', changefreq: 'weekly', lastmod: currentDate },
+    { url: '/Aura', priority: '0.7', changefreq: 'weekly', lastmod: currentDate },
+    { url: '/Water', priority: '0.7', changefreq: 'weekly', lastmod: currentDate },
+    { url: '/Challenges', priority: '0.7', changefreq: 'weekly', lastmod: currentDate },
+  ];
+
+  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+${routes.map(route => `  <url>
+    <loc>${SITE_URL}${route.url}</loc>
+    <lastmod>${route.lastmod}</lastmod>
+    <changefreq>${route.changefreq}</changefreq>
+    <priority>${route.priority}</priority>
+    <xhtml:link rel="alternate" hreflang="en-IN" href="${SITE_URL}${route.url}?lang=en-IN"/>
+    <xhtml:link rel="alternate" hreflang="hi-IN" href="${SITE_URL}${route.url}?lang=hi-IN"/>
+    <xhtml:link rel="alternate" hreflang="mr-IN" href="${SITE_URL}${route.url}?lang=mr-IN"/>
+    <xhtml:link rel="alternate" hreflang="es" href="${SITE_URL}${route.url}?lang=es"/>
+  </url>`).join('\n')}
+</urlset>`;
+
+  return sitemap;
+};
+
+Deno.serve((req) => {
+  try {
+    const url = new URL(req.url);
+    const pathname = url.pathname;
+
+    // Handle robots.txt
+    if (pathname === '/robots.txt') {
+      return new Response(generateRobotsTxt(), {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+        },
+      });
+    }
+
+    // Handle sitemap.xml
+    if (pathname === '/sitemap.xml') {
+      return new Response(generateSitemap(), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/xml; charset=utf-8',
+          'Cache-Control': 'public, max-age=86400', // Cache for 24 hours
+        },
+      });
+    }
+
+    return Response.json({ error: 'Not found' }, { status: 404 });
+  } catch (error) {
+    console.error('SEO function error:', error);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
+  }
+});

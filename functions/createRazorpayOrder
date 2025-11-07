@@ -1,0 +1,171 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+
+Deno.serve(async (req) => {
+    console.log('💳 === RAZORPAY ORDER START ===');
+    
+    try {
+        const base44 = createClientFromRequest(req);
+        const user = await base44.auth.me();
+
+        if (!user) {
+            console.error('❌ User not authenticated');
+            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        console.log('✅ User authenticated:', user.email);
+
+        const body = await req.json();
+        const { amount, plan_type, currency = 'INR' } = body;
+
+        console.log('📝 Payment request:', { 
+            amount, 
+            plan_type, 
+            currency, 
+            user_email: user.email 
+        });
+
+        if (!amount || !plan_type) {
+            console.error('❌ Missing required fields');
+            return Response.json({ 
+                error: 'Missing amount or plan_type' 
+            }, { status: 400 });
+        }
+
+        // Get Razorpay credentials
+        const keyId = Deno.env.get('RAZORPAY_API_KEY');
+        const keySecret = Deno.env.get('RAZORPAY_KEY_SECRECT');
+
+        console.log('🔑 Checking credentials...');
+        console.log('  RAZORPAY_API_KEY:', keyId ? `✅ Found (starts with ${keyId.substring(0, 4)})` : '❌ MISSING');
+        console.log('  RAZORPAY_KEY_SECRECT:', keySecret ? `✅ Found (${keySecret.length} chars)` : '❌ MISSING');
+
+        if (!keyId || !keySecret) {
+            console.error('❌ Razorpay credentials not found in environment');
+            return Response.json({ 
+                error: 'Payment gateway not configured. Please contact support.',
+                missing: {
+                    keyId: !keyId,
+                    keySecret: !keySecret
+                }
+            }, { status: 500 });
+        }
+
+        // Convert amount to paise
+        const amountInPaise = Math.round(Number(amount) * 100);
+        
+        console.log(`💰 Amount conversion: ${amount} ${currency} = ${amountInPaise} paise`);
+
+        // Create order payload
+        const orderPayload = {
+            amount: amountInPaise,
+            currency: currency.toUpperCase(),
+            receipt: `healsy_${user.id}_${Date.now()}`,
+            notes: {
+                user_email: user.email,
+                user_id: user.id,
+                plan_type: plan_type,
+                currency: currency,
+                app: 'Healsy AI'
+            }
+        };
+
+        console.log('📋 Order payload created');
+
+        // Simple and reliable base64 encoding for Basic Auth
+        const credentials = `${keyId}:${keySecret}`;
+        const encoder = new TextEncoder();
+        const data = encoder.encode(credentials);
+        
+        // Convert to base64 using built-in method
+        let base64Credentials = '';
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+        let i = 0;
+        while (i < data.length) {
+            const a = data[i++];
+            const b = i < data.length ? data[i++] : 0;
+            const c = i < data.length ? data[i++] : 0;
+            
+            const bitmap = (a << 16) | (b << 8) | c;
+            
+            base64Credentials += chars[(bitmap >> 18) & 63];
+            base64Credentials += chars[(bitmap >> 12) & 63];
+            base64Credentials += i - 2 < data.length ? chars[(bitmap >> 6) & 63] : '=';
+            base64Credentials += i - 1 < data.length ? chars[bitmap & 63] : '=';
+        }
+
+        console.log('🔐 Authorization header created (length:', base64Credentials.length, ')');
+
+        // Call Razorpay API
+        console.log('📡 Calling Razorpay API at https://api.razorpay.com/v1/orders');
+        
+        const razorpayResponse = await fetch('https://api.razorpay.com/v1/orders', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${base64Credentials}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(orderPayload)
+        });
+
+        console.log('📡 Razorpay API response:', {
+            status: razorpayResponse.status,
+            statusText: razorpayResponse.statusText,
+            ok: razorpayResponse.ok
+        });
+
+        const responseText = await razorpayResponse.text();
+        console.log('📡 Raw response:', responseText);
+
+        if (!razorpayResponse.ok) {
+            console.error('❌ Razorpay API error');
+            
+            let errorDetails;
+            try {
+                errorDetails = JSON.parse(responseText);
+                console.error('Error details:', errorDetails);
+            } catch {
+                errorDetails = { message: responseText };
+            }
+
+            return Response.json({ 
+                error: 'Failed to create Razorpay order',
+                details: errorDetails,
+                status: razorpayResponse.status
+            }, { status: 500 });
+        }
+
+        const order = JSON.parse(responseText);
+
+        console.log('✅ Razorpay order created successfully!');
+        console.log('  Order ID:', order.id);
+        console.log('  Amount:', order.amount, 'paise');
+        console.log('  Currency:', order.currency);
+        console.log('  Status:', order.status);
+
+        const response = {
+            success: true,
+            orderId: order.id,
+            amount: order.amount,
+            currency: order.currency,
+            keyId: keyId,
+        };
+
+        console.log('📤 Sending success response');
+        console.log('💳 === RAZORPAY ORDER SUCCESS ===\n');
+
+        return Response.json(response);
+
+    } catch (error) {
+        console.error('❌ === RAZORPAY ORDER CRITICAL ERROR ===');
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        
+        return Response.json({ 
+            error: 'Payment system error',
+            message: error.message,
+            type: error.name
+        }, { status: 500 });
+    }
+});

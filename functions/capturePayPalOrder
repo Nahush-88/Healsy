@@ -1,0 +1,132 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+
+const PAYPAL_API_BASE = 'https://api-m.paypal.com'; // Use https://api-m.sandbox.paypal.com for testing
+
+Deno.serve(async (req) => {
+    try {
+        console.log('🔐 === CAPTURE PAYPAL ORDER START ===');
+        
+        const base44 = createClientFromRequest(req);
+        const user = await base44.auth.me();
+
+        if (!user) {
+            console.error('❌ User not authenticated');
+            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        console.log('✅ User authenticated:', user.email);
+
+        const body = await req.json();
+        const { orderId, plan_type, currency = 'USD' } = body;
+
+        console.log('📝 Capture request:', { orderId, plan_type, currency, user_email: user.email });
+
+        if (!orderId || !plan_type) {
+            console.error('❌ Missing required parameters');
+            return Response.json({ error: 'Missing orderId or plan_type' }, { status: 400 });
+        }
+
+        // Get PayPal credentials
+        const clientId = Deno.env.get('PAYPAL_CLIENT_ID');
+        const clientSecret = Deno.env.get('PAYPAL_CLIENT_SECRET');
+
+        if (!clientId || !clientSecret) {
+            console.error('❌ PayPal credentials not found');
+            return Response.json({ error: 'PayPal configuration error' }, { status: 500 });
+        }
+
+        // Get access token
+        console.log('🔐 Getting PayPal access token...');
+        const authResponse = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'grant_type=client_credentials'
+        });
+
+        if (!authResponse.ok) {
+            console.error('❌ PayPal auth failed');
+            return Response.json({ error: 'PayPal authentication failed' }, { status: 500 });
+        }
+
+        const authData = await authResponse.json();
+        const accessToken = authData.access_token;
+        console.log('✅ Access token obtained');
+
+        // Capture the order
+        console.log('💰 Capturing PayPal order...');
+        const captureResponse = await fetch(`${PAYPAL_API_BASE}/v2/checkout/orders/${orderId}/capture`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!captureResponse.ok) {
+            const error = await captureResponse.text();
+            console.error('❌ PayPal capture failed:', error);
+            return Response.json({ error: 'Payment capture failed' }, { status: 500 });
+        }
+
+        const captureData = await captureResponse.json();
+        console.log('✅ Payment captured:', captureData.id);
+
+        // Verify payment was successful
+        if (captureData.status !== 'COMPLETED') {
+            console.error('❌ Payment not completed:', captureData.status);
+            return Response.json({ 
+                success: false,
+                error: 'Payment not completed' 
+            }, { status: 400 });
+        }
+
+        // Calculate expiry date
+        const now = new Date();
+        const expiryDate = new Date(now);
+        
+        if (plan_type === 'monthly') {
+            expiryDate.setMonth(expiryDate.getMonth() + 1);
+        } else if (plan_type === 'yearly') {
+            expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+        }
+
+        console.log('📅 Expiry date:', expiryDate.toISOString());
+
+        // Update user to premium
+        console.log('💎 Updating user to premium...');
+        await base44.asServiceRole.entities.User.update(user.id, {
+            is_premium: true,
+            premium_plan: plan_type,
+            premium_expiry: expiryDate.toISOString(),
+            payment_id: captureData.id,
+            payment_currency: currency
+        });
+
+        console.log('✅ User upgraded to premium!');
+
+        const response = {
+            success: true,
+            message: 'Payment successful and premium activated',
+            premium_expiry: expiryDate.toISOString(),
+            plan_type: plan_type,
+            currency: currency
+        };
+
+        console.log('📤 Sending success response');
+        console.log('🔐 === CAPTURE PAYPAL ORDER END (SUCCESS) ===');
+
+        return Response.json(response);
+
+    } catch (error) {
+        console.error('❌ === CAPTURE PAYPAL ORDER ERROR ===');
+        console.error('Error:', error);
+        return Response.json({ 
+            success: false,
+            error: 'Payment capture failed',
+            details: error.message 
+        }, { status: 500 });
+    }
+});

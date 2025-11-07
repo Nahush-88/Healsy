@@ -1,0 +1,41 @@
+{
+  "name": "MoodLog",
+  "type": "object",
+  "properties": {
+    "mood": {
+      "type": "string",
+      "enum": [
+        "radiant",
+        "good",
+        "okay",
+        "sad",
+        "stressed"
+      ],
+      "description": "User's selected mood"
+    },
+    "mood_score": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "Numeric mood score (1-5)"
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional notes about the mood"
+    },
+    "ai_suggestion": {
+      "type": "string",
+      "description": "AI-generated suggestion based on mood"
+    },
+    "log_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of mood log"
+    }
+  },
+  "required": [
+    "mood",
+    "mood_score",
+    "log_date"
+  ]
+}

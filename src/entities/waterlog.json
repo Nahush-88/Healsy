@@ -1,0 +1,29 @@
+{
+  "name": "WaterLog",
+  "type": "object",
+  "properties": {
+    "amount_ml": {
+      "type": "number",
+      "description": "Amount of water consumed in ml"
+    },
+    "target_ml": {
+      "type": "number",
+      "default": 2000,
+      "description": "Daily water intake target in ml"
+    },
+    "log_time": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Time when water was logged"
+    },
+    "log_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of water log"
+    }
+  },
+  "required": [
+    "amount_ml",
+    "log_date"
+  ]
+}

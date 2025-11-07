@@ -1,0 +1,62 @@
+{
+  "name": "SkincareRoutine",
+  "type": "object",
+  "properties": {
+    "skin_type": {
+      "type": "string",
+      "enum": [
+        "oily",
+        "dry",
+        "normal",
+        "combination",
+        "sensitive"
+      ],
+      "description": "User's skin type"
+    },
+    "morning_routine": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Morning skincare steps"
+    },
+    "night_routine": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Night skincare steps"
+    },
+    "glow_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Current glow score"
+    },
+    "hydration_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Skin hydration level"
+    },
+    "routine_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of routine"
+    },
+    "completed_today": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether routine was completed"
+    },
+    "streak_days": {
+      "type": "number",
+      "default": 0,
+      "description": "Current streak of daily routines"
+    }
+  },
+  "required": [
+    "skin_type",
+    "routine_date"
+  ]
+}

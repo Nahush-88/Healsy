@@ -1,0 +1,89 @@
+{
+  "name": "Challenge",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Challenge title"
+    },
+    "description": {
+      "type": "string",
+      "description": "Challenge description"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "mind",
+        "body",
+        "nutrition",
+        "sleep",
+        "skin",
+        "wellness",
+        "fitness",
+        "hydration"
+      ],
+      "description": "Challenge category"
+    },
+    "duration_days": {
+      "type": "number",
+      "description": "Challenge duration in days"
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": [
+        "easy",
+        "medium",
+        "hard"
+      ],
+      "description": "Challenge difficulty level"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Emoji icon for the challenge"
+    },
+    "is_premium": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether challenge requires premium"
+    },
+    "xp_reward": {
+      "type": "number",
+      "default": 100,
+      "description": "Experience points earned on completion"
+    },
+    "badge_name": {
+      "type": "string",
+      "description": "Name of badge earned"
+    },
+    "badge_emoji": {
+      "type": "string",
+      "description": "Badge emoji"
+    },
+    "daily_tasks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of daily tasks for the challenge"
+    },
+    "tips": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Helpful tips for completing challenge"
+    },
+    "color_theme": {
+      "type": "string",
+      "description": "Color theme for UI (e.g., 'violet', 'blue', 'green')"
+    }
+  },
+  "required": [
+    "title",
+    "description",
+    "category",
+    "duration_days",
+    "difficulty",
+    "icon"
+  ]
+}

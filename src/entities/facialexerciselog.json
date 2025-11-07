@@ -1,0 +1,41 @@
+{
+  "name": "FacialExerciseLog",
+  "type": "object",
+  "properties": {
+    "exercise_type": {
+      "type": "string",
+      "enum": [
+        "jawline",
+        "cheekbones",
+        "double_chin",
+        "face_glow",
+        "full_routine"
+      ],
+      "description": "Type of facial exercise"
+    },
+    "duration_minutes": {
+      "type": "number",
+      "description": "Duration of exercise session"
+    },
+    "exercises_completed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of exercises completed"
+    },
+    "log_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of exercise session"
+    },
+    "notes": {
+      "type": "string",
+      "description": "User notes about the session"
+    }
+  },
+  "required": [
+    "exercise_type",
+    "log_date"
+  ]
+}

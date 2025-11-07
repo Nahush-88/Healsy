@@ -1,0 +1,38 @@
+{
+  "name": "JournalEntry",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Title of the journal entry"
+    },
+    "content": {
+      "type": "string",
+      "description": "The journal content written by user"
+    },
+    "mood": {
+      "type": "string",
+      "enum": [
+        "radiant",
+        "good",
+        "okay",
+        "sad",
+        "stressed"
+      ],
+      "description": "User's mood when writing"
+    },
+    "ai_insights": {
+      "type": "object",
+      "description": "AI analysis of the journal entry"
+    },
+    "entry_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Date of the journal entry"
+    }
+  },
+  "required": [
+    "content",
+    "entry_date"
+  ]
+}

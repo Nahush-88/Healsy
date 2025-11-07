@@ -1,0 +1,108 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+import { jsPDF } from 'npm:jspdf@2.5.1';
+
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const payload = await req.json().catch(() => ({}));
+    const analysis = payload?.analysis || {};
+    const workoutPlan = Array.isArray(analysis.workout_plan) ? analysis.workout_plan : [];
+
+    const doc = new jsPDF();
+
+    // Header
+    doc.setFontSize(18);
+    doc.text('Healsy AI - Exercise Plan', 20, 20);
+    doc.setFontSize(11);
+    doc.text(`User: ${user.full_name || user.email}`, 20, 28);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 34);
+
+    // Overview
+    doc.setFontSize(14);
+    doc.text('Overview', 20, 48);
+    doc.setFontSize(11);
+    const overview = String(analysis.weekly_overview || 'Balanced training across cardio, strength, and flexibility.');
+    doc.text(doc.splitTextToSize(overview, 170), 20, 56);
+
+    // Plan
+    let y = 80;
+    doc.setFontSize(14);
+    doc.text('Workout Plan', 20, y);
+    y += 8;
+    doc.setFontSize(11);
+
+    if (!workoutPlan.length) {
+      doc.text('No workout items found.', 20, y);
+      y += 8;
+    } else {
+      for (const w of workoutPlan) {
+        if (y > 270) { doc.addPage(); y = 20; }
+        const header = `${w.day || 'Day'} • ${w.workout_type || 'Workout'}`;
+        doc.setFont(undefined, 'bold');
+        doc.text(header, 20, y);
+        doc.setFont(undefined, 'normal');
+        y += 6;
+
+        const exercises = Array.isArray(w.exercises) ? w.exercises : [];
+        if (!exercises.length) {
+          doc.text('• (No exercises)', 20, y);
+          y += 6;
+        } else {
+          for (const ex of exercises) {
+            if (y > 280) { doc.addPage(); y = 20; }
+            const sets = ex.sets != null ? `${ex.sets} sets` : '';
+            const reps = ex.reps != null ? `${ex.reps} reps` : '';
+            const details = [sets, reps].filter(Boolean).join(' • ');
+            doc.text(`• ${ex.name || 'Exercise'}${details ? ` — ${details}` : ''}`, 24, y);
+            y += 6;
+          }
+        }
+        y += 2;
+      }
+    }
+
+    // Routines and tips
+    if (y > 260) { doc.addPage(); y = 20; }
+    doc.setFontSize(14);
+    doc.text('Warm-up & Cool-down', 20, y);
+    y += 8;
+    doc.setFontSize(11);
+    doc.text(`Warm-up: ${analysis.warm_up_routine || '—'}`, 20, y); y += 6;
+    doc.text(`Cool-down: ${analysis.cool_down_routine || '—'}`, 20, y); y += 10;
+
+    doc.setFontSize(14);
+    doc.text('Equipment & Tips', 20, y); y += 8;
+    doc.setFontSize(11);
+    const equipment = Array.isArray(analysis.equipment_needed) ? analysis.equipment_needed : [];
+    const tips = Array.isArray(analysis.fitness_tips) ? analysis.fitness_tips : [];
+    doc.text(`Equipment: ${equipment.length ? equipment.join(', ') : '—'}`, 20, y); y += 6;
+    doc.text('Tips:', 20, y); y += 6;
+    if (!tips.length) {
+      doc.text('• —', 24, y); y += 6;
+    } else {
+      for (const t of tips) {
+        if (y > 280) { doc.addPage(); y = 20; }
+        const chunks = doc.splitTextToSize(`• ${t}`, 170);
+        doc.text(chunks, 24, y);
+        y += chunks.length * 6;
+      }
+    }
+
+    const pdfBytes = doc.output('arraybuffer');
+    return new Response(pdfBytes, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': 'attachment; filename=exercise-plan.pdf'
+      }
+    });
+  } catch (error) {
+    return Response.json({ error: error.message }, { status: 500 });
+  }
+});

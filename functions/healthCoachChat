@@ -1,0 +1,139 @@
+
+import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+
+const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+
+Deno.serve(async (req) => {
+  try {
+    const base44 = createClientFromRequest(req);
+    const user = await base44.auth.me();
+    if (!user) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    // Enforce Premium access
+    if (!user.is_premium) {
+      return Response.json(
+        { error: 'Healsy Premium is required to use AI Coach.' },
+        { status: 403 }
+      );
+    }
+
+    const apiKey = Deno.env.get('Groq_4');
+    if (!apiKey) {
+      return Response.json({ error: 'Groq/OpenRouter API key not configured' }, { status: 500 });
+    }
+
+    const { message, history = [], image_urls = [] } = await req.json().catch(() => ({}));
+    if (!message || typeof message !== 'string') {
+      return Response.json({ error: 'Message is required' }, { status: 400 });
+    }
+
+    const useOpenRouter = apiKey.startsWith('sk-or-');
+
+    const sysPrompt =
+      "You are Healsy AI Coach, a supportive, expert wellness assistant. Provide kind, actionable guidance across hydration, diet, exercise, sleep, mood, meditation, skin glow, and yoga. Keep answers concise and practical with step-by-step tips when helpful. Avoid medical diagnosis; include a brief safety note when sensitive. If images are provided, analyze them gently and constructively.";
+
+    // Map history to OpenAI-style format (limit to last 10)
+    const trimmed = Array.isArray(history) ? history.slice(-10) : [];
+    const chatHistory = trimmed.map((m) => ({
+      role: m?.role === 'assistant' ? 'assistant' : 'user',
+      content: [{ type: 'text', text: String(m?.content || '') }]
+    }));
+
+    // Build user content with optional images
+    const userContent = [{ type: 'text', text: message }];
+    const imgs = Array.isArray(image_urls) ? image_urls.slice(0, 4) : [];
+    imgs.forEach((url) => {
+      if (typeof url === 'string' && url.startsWith('http')) {
+        userContent.push({ type: 'image_url', image_url: { url } });
+      }
+    });
+    const hasImages = userContent.some((c) => c.type === 'image_url');
+
+    // Model candidates by provider
+    const candidates = (() => {
+      if (useOpenRouter) {
+        return hasImages
+          // Vision-capable models on OpenRouter
+          ? [
+              'meta-llama/llama-3.2-11b-vision-instruct',
+              'openai/gpt-4o-mini',
+              'google/gemini-flash-1.5'
+            ]
+          // Strong text-only models on OpenRouter
+          : [
+              'meta-llama/llama-3.1-70b-instruct',
+              'qwen/qwen-2.5-72b-instruct',
+              'mistralai/mixtral-8x7b-instruct'
+            ];
+      }
+      // Groq native models
+      return hasImages
+        ? ['llama-3.2-11b-vision-preview']
+        : ['llama-3.1-70b-versatile'];
+    })();
+
+    const endpoint = useOpenRouter ? OPENROUTER_URL : GROQ_API_URL;
+
+    let lastErrorText = '';
+    for (const model of candidates) {
+      const payload = {
+        model,
+        temperature: 0.6,
+        max_tokens: 900,
+        messages: [
+          { role: 'system', content: [{ type: 'text', text: sysPrompt }] },
+          ...chatHistory,
+          { role: 'user', content: userContent }
+        ]
+      };
+
+      const headers = {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      };
+
+      if (useOpenRouter) {
+        const referer = req.headers.get('origin') || 'https://healsy-ai.base44.app';
+        headers['HTTP-Referer'] = referer;
+        headers['X-Title'] = 'Healsy AI';
+      }
+
+      const llmRes = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+
+      if (llmRes.ok) {
+        const data = await llmRes.json();
+        const content = data?.choices?.[0]?.message?.content;
+        let answer = '';
+        if (Array.isArray(content)) {
+          answer = content.map((p) => p?.text || p?.content || '').join(' ').trim();
+        } else {
+          answer = content || '';
+        }
+        if (!answer) {
+          lastErrorText = 'Empty response content';
+          continue;
+        }
+        return Response.json({ answer, model, provider: useOpenRouter ? 'openrouter' : 'groq' });
+      } else {
+        lastErrorText = await llmRes.text();
+        // Try next candidate on 400/404 or invalid model errors
+        if (!(llmRes.status === 400 || llmRes.status === 404)) {
+          break;
+        }
+      }
+    }
+
+    return Response.json(
+      { error: 'Groq/OpenRouter request failed', details: lastErrorText || 'All candidate models failed' },
+      { status: 500 }
+    );
+  } catch (error) {
+    return Response.json({ error: error.message || 'Internal Server Error' }, { status: 500 });
+  }
+});

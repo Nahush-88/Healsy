@@ -1,0 +1,137 @@
+import { createClientFromRequest } from 'npm:@base44/sdk@0.7.1';
+
+const PAYPAL_API_BASE = 'https://api-m.paypal.com'; // Use https://api-m.sandbox.paypal.com for testing
+
+Deno.serve(async (req) => {
+    try {
+        console.log('💳 === CREATE PAYPAL ORDER START ===');
+        
+        const base44 = createClientFromRequest(req);
+        const user = await base44.auth.me();
+
+        if (!user) {
+            console.error('❌ User not authenticated');
+            return Response.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        console.log('✅ User authenticated:', user.email);
+
+        const body = await req.json();
+        const { amount, plan_type, currency = 'USD' } = body;
+
+        console.log('📝 Payment request:', { amount, plan_type, currency, user_email: user.email });
+
+        if (!amount || !plan_type) {
+            console.error('❌ Missing required parameters');
+            return Response.json({ error: 'Missing amount or plan_type' }, { status: 400 });
+        }
+
+        // Get PayPal credentials
+        const clientId = Deno.env.get('PAYPAL_CLIENT_ID');
+        const clientSecret = Deno.env.get('PAYPAL_CLIENT_SECRET');
+
+        console.log('🔑 Checking PayPal credentials...');
+        console.log('Client ID exists:', !!clientId);
+        console.log('Client Secret exists:', !!clientSecret);
+
+        if (!clientId || !clientSecret) {
+            console.error('❌ PayPal credentials not found');
+            return Response.json({ 
+                error: 'Payment system configuration error - PayPal credentials missing'
+            }, { status: 500 });
+        }
+
+        console.log('✅ PayPal credentials found');
+
+        // Get access token
+        console.log('🔐 Getting PayPal access token...');
+        const authResponse = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'grant_type=client_credentials'
+        });
+
+        if (!authResponse.ok) {
+            const error = await authResponse.text();
+            console.error('❌ PayPal auth failed:', error);
+            return Response.json({ error: 'PayPal authentication failed' }, { status: 500 });
+        }
+
+        const authData = await authResponse.json();
+        const accessToken = authData.access_token;
+        console.log('✅ PayPal access token obtained');
+
+        // Create order
+        const orderPayload = {
+            intent: 'CAPTURE',
+            purchase_units: [{
+                amount: {
+                    currency_code: currency,
+                    value: amount.toFixed(2)
+                },
+                description: `Healsy AI Premium - ${plan_type === 'monthly' ? 'Monthly' : 'Yearly'} Plan`,
+                custom_id: `healsy_${user.id}_${Date.now()}`,
+                invoice_id: `healsy_${user.id}_${Date.now()}`
+            }],
+            application_context: {
+                brand_name: 'Healsy AI',
+                landing_page: 'BILLING',
+                user_action: 'PAY_NOW',
+                return_url: `${req.headers.get('origin') || 'https://healsy-ai.base44.app'}/PaymentStatus?success=true&plan=${plan_type}&currency=${currency}`,
+                cancel_url: `${req.headers.get('origin') || 'https://healsy-ai.base44.app'}/PaymentStatus?success=false`
+            }
+        };
+
+        console.log('📋 Creating PayPal order...');
+        const orderResponse = await fetch(`${PAYPAL_API_BASE}/v2/checkout/orders`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+                'PayPal-Request-Id': `healsy_${user.id}_${Date.now()}`
+            },
+            body: JSON.stringify(orderPayload)
+        });
+
+        if (!orderResponse.ok) {
+            const error = await orderResponse.text();
+            console.error('❌ PayPal order creation failed:', error);
+            return Response.json({ error: 'Failed to create PayPal order' }, { status: 500 });
+        }
+
+        const orderData = await orderResponse.json();
+        console.log('✅ PayPal order created:', orderData.id);
+
+        // Get approval URL
+        const approvalUrl = orderData.links.find(link => link.rel === 'approve')?.href;
+
+        if (!approvalUrl) {
+            console.error('❌ No approval URL in PayPal response');
+            return Response.json({ error: 'Invalid PayPal response' }, { status: 500 });
+        }
+
+        const response = {
+            success: true,
+            orderId: orderData.id,
+            approvalUrl: approvalUrl,
+            amount: amount,
+            currency: currency
+        };
+
+        console.log('📤 Sending response:', response);
+        console.log('💳 === CREATE PAYPAL ORDER END (SUCCESS) ===');
+
+        return Response.json(response);
+
+    } catch (error) {
+        console.error('❌ === CREATE PAYPAL ORDER ERROR ===');
+        console.error('Error:', error);
+        return Response.json({ 
+            error: 'Failed to create PayPal order',
+            details: error.message
+        }, { status: 500 });
+    }
+});
